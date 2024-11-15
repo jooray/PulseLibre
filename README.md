@@ -8,6 +8,10 @@ This mobile app is designed for both Android and iOS platforms and mirrors the f
 
 ![Pulse-Libre Mobile Screenshot](images/screenshot.png)
 
+## Installation on Android
+
+Add [https://github.com/jooray/PulseLibre](https://github.com/jooray/PulseLibre) to your Obtainium. I don't plan on releasing through Play Store nor F-Droid.
+
 ## Features
 
 - Scan and connect to [Pulsetto devices](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo) automatically.
@@ -15,6 +19,7 @@ This mobile app is designed for both Android and iOS platforms and mirrors the f
 - Start and stop a timer (default 4 minutes).
 - Display battery level and charging status.
 - Compatible with Android and iOS devices.
+- Does not require Internet permission. No tracking. It needs location and bluetooth permission - location is because Bluetooth scanning could reveal your location, so scanning does not work otherwise. But since there is no Internet permission, the app can't do anything with the location anyway.
 
 ## Prerequisites
 
