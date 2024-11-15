@@ -1,79 +1,104 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Pulse-Libre Mobile Application
 
-# Getting Started
+A React Native application to control the [Pulsetto device](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo) via Bluetooth Low Energy (BLE). The app allows you to set the strength of the device, start a timer, and monitor battery and charging status.
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+This mobile app is designed for both Android and iOS platforms and mirrors the functionality of the desktop app available [here](https://github.com/jooray/pulse-libre-desktop).
 
-## Step 1: Start the Metro Server
+## Features
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+- Scan and connect to [Pulsetto devices](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo) automatically.
+- Set strength levels from 1 to 9.
+- Start and stop a timer (default 4 minutes).
+- Display battery level and charging status.
+- Compatible with Android and iOS devices.
 
-To start Metro, run the following command from the _root_ of your React Native project:
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) version 18 or higher.
+- [React Native CLI](https://reactnative.dev/docs/environment-setup) for native build capabilities.
+- Android Studio and/or Xcode for compiling and running the app.
+- A physical or virtual Android/iOS device for testing.
+
+## Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/jooray/PulseLibre.git
+   cd PulseLibre
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Configure your environment**
+   - Follow the [React Native CLI environment setup guide](https://reactnative.dev/docs/environment-setup) to configure your machine for building Android and iOS apps.
+   - For Android, ensure Android Studio is installed and properly configured.
+   - For iOS, ensure Xcode is installed (macOS only).
+
+## Running the Application
+
+### Android
 
 ```bash
-# using npm
-npm start
-
-# OR using Yarn
-yarn start
+npx react-native run-android   
 ```
 
-## Step 2: Start your Application
+### iOS (macOS only)
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
+1. **Install CocoaPods dependencies**:
+   ```bash
+   cd ios
+   pod install
+   cd ..
+   ```
 
-### For Android
-
+3. **Compile and run the app on an iOS simulator/device**:
 ```bash
-# using npm
-npm run android
-
-# OR using Yarn
-yarn android
+npx react-native run-ios
 ```
 
-### For iOS
+## Usage
 
-```bash
-# using npm
-npm run ios
+- Upon starting, the app will attempt to scan and connect to a Pulsetto device.
+- If a device is not found, a "Scan" button will appear. Press it to scan again.
+- Once connected, battery level and charging status will be displayed.
+- Use the slider to set the desired strength (1-9).
+- Press the "Start" button to begin the timer and activate the device.
+- Press the "Stop" button to stop the device and the timer.
+- While the device is running, you can adjust the strength slider to change the intensity without affecting the timer.
 
-# OR using Yarn
-yarn ios
-```
+## Why? Backstory
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+I was stranded in a car in a storm. The storm took out all the cell towers. With nothing
+to do, I decided to do some biohacking, chill out, use some Near Infrared Light, and
+do some vagal stimulation to remove the stress of the freaking wind that was shaking my car
+and throwing over reusable bathrooms around me.
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+I turned the device on, but it needed to log in and go to the internet. Which was, of course,
+not working because of the storm.
 
-## Step 3: Modifying your App
+Why does an electric nerve stimulator need an account and access to the Internet? I sighed.
+A few moments later, I wanted to learn about BLE hacking and reverse engineering. The code
+was written mostly by ChatGPT anyway, but I did some nice reverse engineering of the protocol.
+The result is this micro app. Have fun.
 
-Now that you have successfully run the app, let's modify it.
+## Information about Pulsetto Device
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+The device's original app has multiple modes (Stress, Pain, Burnout, ...), but
+they are actually all the same, just with different recommendations on how often to do
+them and different program lengths. There is no difference in what the device does.
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+The only thing that you set on your device is the strength level (1-9), and the
+app starts a timer.
 
-## Congratulations! :tada:
+Get your [Pulsetto device](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo).
 
-You've successfully run and modified your React Native App. :partying_face:
+## Related Projects
 
-### Now what?
+For a desktop application with similar functionality, check out the [Pulsetto Desktop App](https://github.com/jooray/pulse-libre-desktop). Compatible with Windows, macOS, and Linux.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Enjoy biohacking and take control of your Pulsetto device on mobile! 🚀
