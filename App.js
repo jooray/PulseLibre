@@ -7,20 +7,29 @@ import {
   useColorScheme,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { BleManager } from 'react-native-ble-plx';
-import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import {
+  request,
+  requestMultiple,
+  check,
+  checkMultiple,
+  PERMISSIONS,
+  RESULTS,
+  openSettings,
+} from 'react-native-permissions';
 import { Buffer } from 'buffer'; // Import Buffer for base64 encoding
 
 // Initialize BLE Manager
 const manager = new BleManager();
 
 // BLE Constants
-const DEVICE_NAME_PREFIX = "Pulsetto";
-const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const UART_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Write
-const UART_TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Notify
+const DEVICE_NAME_PREFIX = 'Pulsetto';
+const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Write
+const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Notify
 
 // Battery Voltage Constants
 const BATTERY_FULL_VOLTAGE = 3.95; // Voltage at 100%
@@ -58,36 +67,78 @@ const App = () => {
     };
   }, []);
 
-  // Request Bluetooth permissions and start scanning if granted
+  // Request Bluetooth and Location permissions
   const requestBluetoothPermissions = async () => {
-    const permissions = Platform.select({
-      android: [
+    if (Platform.OS === 'android') {
+      const permissions = [
         PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
         PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
         PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
-      ],
-      ios: [PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL],
-    });
+      ];
 
-    try {
-      const results = await Promise.all(permissions.map((perm) => request(perm)));
-      console.log('Permissions granted:', results);
+      try {
+        const statuses = await checkMultiple(permissions);
 
-      // Check if all permissions are granted
-      const allGranted = results.every(result => result === RESULTS.GRANTED);
-      if (allGranted) {
-        scanForDevices(); // Start scanning automatically
-      } else {
-        Alert.alert(
-          "Permissions Required",
-          "Location and Bluetooth permissions are required for scanning.",
-          [{ text: "OK" }]
-        );
-        console.warn('Not all permissions granted');
+        const permissionsToRequest = [];
+
+        for (const permission of permissions) {
+          if (statuses[permission] !== RESULTS.GRANTED) {
+            permissionsToRequest.push(permission);
+          }
+        }
+
+        if (permissionsToRequest.length > 0) {
+          const newStatuses = await requestMultiple(permissionsToRequest);
+
+          const allGranted = Object.values(newStatuses).every(
+            status => status === RESULTS.GRANTED
+          );
+
+          if (allGranted) {
+            scanForDevices();
+          } else {
+            Alert.alert(
+              'Permissions Required',
+              'Location and Bluetooth permissions are required for scanning.',
+              [
+                { text: 'Grant Permissions', onPress: () => requestBluetoothPermissions() },
+                { text: 'Open Settings', onPress: () => openSettings(), style: 'cancel' },
+              ]
+            );
+          }
+        } else {
+          scanForDevices();
+        }
+      } catch (error) {
+        console.error('Permission request error:', error);
+        Alert.alert('Permission Error', error.message, [{ text: 'OK' }]);
       }
-    } catch (error) {
-      console.error('Permission request error:', error);
-      Alert.alert("Permission Error", error.message, [{ text: "OK" }]);
+    } else if (Platform.OS === 'ios') {
+      // Handle iOS permissions
+      try {
+        const status = await check(PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL);
+
+        if (status !== RESULTS.GRANTED) {
+          const newStatus = await request(PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL);
+          if (newStatus === RESULTS.GRANTED) {
+            scanForDevices();
+          } else {
+            Alert.alert(
+              'Permissions Required',
+              'Bluetooth permission is required for scanning.',
+              [
+                { text: 'Grant Permissions', onPress: () => requestBluetoothPermissions() },
+                { text: 'Open Settings', onPress: () => openSettings(), style: 'cancel' },
+              ]
+            );
+          }
+        } else {
+          scanForDevices();
+        }
+      } catch (error) {
+        console.error('Permission request error:', error);
+        Alert.alert('Permission Error', error.message, [{ text: 'OK' }]);
+      }
     }
   };
 
@@ -104,7 +155,7 @@ const App = () => {
       if (error) {
         console.log('Scan error:', error);
         setScanning(false);
-        Alert.alert("Scan Error", error.message, [{ text: "OK" }]);
+        Alert.alert('Scan Error', error.message || JSON.stringify(error), [{ text: 'OK' }]);
         return;
       }
 
@@ -122,13 +173,15 @@ const App = () => {
         manager.stopDeviceScan();
         setScanning(false);
         console.log('Scanning timed out');
-        Alert.alert("Scan Timeout", "No device found. Please try scanning again.", [{ text: "OK" }]);
+        Alert.alert('Scan Timeout', 'No device found. Please try scanning again.', [
+          { text: 'OK' },
+        ]);
       }
     }, 10000); // 10 seconds
   };
 
   // Connect to the BLE device
-  const connectToDevice = async (device) => {
+  const connectToDevice = async device => {
     try {
       console.log(`Connecting to device: ${device.name}`);
       const connected = await manager.connectToDevice(device.id, { autoConnect: false });
@@ -147,19 +200,19 @@ const App = () => {
       await queryDeviceStatus(connected);
     } catch (error) {
       console.error('Connection error:', error);
-      Alert.alert("Connection Error", error.message, [{ text: "OK" }]);
+      Alert.alert('Connection Error', error.message, [{ text: 'OK' }]);
     }
   };
 
   // Query device status (battery and charging)
-  const queryDeviceStatus = async (device) => {
+  const queryDeviceStatus = async device => {
     console.log('Querying device status...');
-    await sendCommand("Q\n", device); // Query battery
-    await sendCommand("u\n", device); // Query charging status
+    await sendCommand('Q\n', device); // Query battery
+    await sendCommand('u\n', device); // Query charging status
   };
 
   // Subscribe to notifications from the device
-  const subscribeToNotifications = (device) => {
+  const subscribeToNotifications = device => {
     console.log('Subscribing to notifications...');
     device.monitorCharacteristicForService(
       UART_SERVICE_UUID,
@@ -205,10 +258,12 @@ const App = () => {
     // Check for Charging Status based on raw bytes
     // Assuming 'u0' (0x75 0x01 0x30) = Not Charging, 'u1' (0x75 0x01 0x31) = Charging
     if (rawBytes.length >= 3 && rawBytes[0] === 0x75 && rawBytes[1] === 0x01) {
-      if (rawBytes[2] === 0x30) { // '0'
+      if (rawBytes[2] === 0x30) {
+        // '0'
         setCharging('Not Charging');
         console.log('Charging Status: Not Charging');
-      } else if (rawBytes[2] === 0x31) { // '1'
+      } else if (rawBytes[2] === 0x31) {
+        // '1'
         setCharging('Charging');
         console.log('Charging Status: Charging');
       } else {
@@ -222,7 +277,7 @@ const App = () => {
   };
 
   // Calculate battery percentage based on voltage
-  const calculateBatteryPercentage = (voltage) => {
+  const calculateBatteryPercentage = voltage => {
     if (voltage >= BATTERY_FULL_VOLTAGE) {
       return 100;
     } else if (voltage <= BATTERY_EMPTY_VOLTAGE) {
@@ -253,14 +308,14 @@ const App = () => {
       console.log('Command sent successfully.');
     } catch (error) {
       console.error('Failed to send command:', error);
-      Alert.alert("Command Error", error.message, [{ text: "OK" }]);
+      Alert.alert('Command Error', error.message, [{ text: 'OK' }]);
     }
   };
 
   // Handle Start Button Press
   const handleStart = async () => {
     if (!connectedDevice) {
-      Alert.alert("Error", "Device not connected.", [{ text: "OK" }]);
+      Alert.alert('Error', 'Device not connected.', [{ text: 'OK' }]);
       return;
     }
 
@@ -269,19 +324,19 @@ const App = () => {
     setRemainingTime(timer * 60); // Set remaining time in seconds
 
     try {
-      await sendCommand("D\n"); // Activate device
+      await sendCommand('D\n'); // Activate device
       await sendCommand(`${strength}\n`); // Set strength
       console.log(`Timer started for ${timer} minutes with strength ${strength}.`);
     } catch (error) {
       console.error('Error during start:', error);
-      Alert.alert("Start Error", error.message, [{ text: "OK" }]);
+      Alert.alert('Start Error', error.message, [{ text: 'OK' }]);
     }
   };
 
   // Handle Stop Button Press
   const handleStop = async () => {
     if (!connectedDevice) {
-      Alert.alert("Error", "Device not connected.", [{ text: "OK" }]);
+      Alert.alert('Error', 'Device not connected.', [{ text: 'OK' }]);
       return;
     }
 
@@ -290,12 +345,12 @@ const App = () => {
     setRemainingTime(0); // Reset remaining time
 
     try {
-      await sendCommand("0\n"); // Deactivate device
+      await sendCommand('0\n'); // Deactivate device
       console.log('Device stopped.');
       await queryDeviceStatus(connectedDevice); // Update status
     } catch (error) {
       console.error('Error during stop:', error);
-      Alert.alert("Stop Error", error.message, [{ text: "OK" }]);
+      Alert.alert('Stop Error', error.message, [{ text: 'OK' }]);
     }
   };
 
@@ -324,7 +379,7 @@ const App = () => {
   }, [isRunning]);
 
   // Handle Strength Change
-  const handleStrengthChange = async (value) => {
+  const handleStrengthChange = async value => {
     setStrength(value);
     console.log(`Strength slider changed to: ${value}`);
 
@@ -334,16 +389,29 @@ const App = () => {
         console.log(`Strength updated to ${value} while running.`);
       } catch (error) {
         console.error('Error updating strength:', error);
-        Alert.alert("Strength Update Error", error.message, [{ text: "OK" }]);
+        Alert.alert('Strength Update Error', error.message, [{ text: 'OK' }]);
       }
     }
   };
 
   // Format remaining time as MM:SS
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const formatTime = seconds => {
+    const mins = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, '0');
     const secs = (seconds % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
+  };
+
+  // Timer Handlers should be defined before the return statement
+  const increaseTimer = () => {
+    setTimer(prev => prev + 1);
+    console.log(`Timer increased to ${timer + 1} minutes.`);
+  };
+
+  const decreaseTimer = () => {
+    setTimer(prev => Math.max(1, prev - 1));
+    console.log(`Timer decreased to ${Math.max(1, timer - 1)} minutes.`);
   };
 
   return (
@@ -351,7 +419,9 @@ const App = () => {
       {/* Timer Control */}
       <View style={styles.timerContainer}>
         <Button title="-" onPress={decreaseTimer} />
-        <Text style={styles.timerText}>{formatTime(remainingTime > 0 ? remainingTime : timer * 60)}</Text>
+        <Text style={styles.timerText}>
+          {formatTime(remainingTime > 0 ? remainingTime : timer * 60)}
+        </Text>
         <Button title="+" onPress={increaseTimer} />
       </View>
 
@@ -371,8 +441,8 @@ const App = () => {
       </View>
 
       {/* Start/Stop Button */}
-      {connectedDevice && (
-        isRunning ? (
+      {connectedDevice &&
+        (isRunning ? (
           <Button
             title="Stop"
             onPress={handleStop}
@@ -384,8 +454,7 @@ const App = () => {
             onPress={handleStart}
             color={isDarkMode ? '#007BFF' : '#1E90FF'}
           />
-        )
-      )}
+        ))}
 
       {/* Scan Button */}
       {!connectedDevice && (
@@ -402,21 +471,10 @@ const App = () => {
       </Text>
     </View>
   );
-
-  // Timer Handlers
-  function increaseTimer() {
-    setTimer(prev => prev + 1);
-    console.log(`Timer increased to ${timer + 1} minutes.`);
-  }
-
-  function decreaseTimer() {
-    setTimer(prev => Math.max(1, prev - 1));
-    console.log(`Timer decreased to ${Math.max(1, timer - 1)} minutes.`);
-  }
 };
 
 // Styles
-const getStyles = (isDarkMode) =>
+const getStyles = isDarkMode =>
   StyleSheet.create({
     container: {
       flex: 1,
