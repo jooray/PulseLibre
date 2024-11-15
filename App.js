@@ -80,7 +80,7 @@ const App = () => {
       } else {
         Alert.alert(
           "Permissions Required",
-          "Bluetooth permissions are required to use this app.",
+          "Location and Bluetooth permissions are required for scanning.",
           [{ text: "OK" }]
         );
         console.warn('Not all permissions granted');

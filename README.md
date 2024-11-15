@@ -106,3 +106,12 @@ Get your [Pulsetto device](https://pulsetto.myshopify.com/products/meet-pulsetto
 For a desktop application with similar functionality, check out the [Pulsetto Desktop App](https://github.com/jooray/pulse-libre-desktop). Compatible with Windows, macOS, and Linux.
 
 Enjoy biohacking and take control of your Pulsetto device on mobile! 🚀
+
+## Note on building the APK
+
+```bash
+cd android
+./gradlew clean assembleRelease
+```
+
+This will generate a release APK at: android/app/build/outputs/apk/release/app-release.apk
