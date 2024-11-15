@@ -4,6 +4,10 @@ A React Native application to control the [Pulsetto device](https://pulsetto.mys
 
 This mobile app is designed for both Android and iOS platforms and mirrors the functionality of the desktop app available [here](https://github.com/jooray/pulse-libre-desktop).
 
+## Screenshot
+
+![Pulse-Libre Mobile Screenshot](images/screenshot.png)
+
 ## Features
 
 - Scan and connect to [Pulsetto devices](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo) automatically.
