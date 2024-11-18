@@ -1,6 +1,6 @@
 # Pulse-Libre Mobile Application
 
-A React Native application to control the [Pulsetto device](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo) via Bluetooth Low Energy (BLE). The app allows you to set the strength of the device, start a timer, and monitor battery and charging status.
+A React Native application to control the [Pulsetto device](https://juraj.bednar.io/pulsetto) via Bluetooth Low Energy (BLE). The app allows you to set the strength of the device, start a timer, and monitor battery and charging status.
 
 This mobile app is designed for both Android and iOS platforms and mirrors the functionality of the desktop app available [here](https://github.com/jooray/pulse-libre-desktop).
 
@@ -104,7 +104,7 @@ them and different program lengths. There is no difference in what the device do
 The only thing that you set on your device is the strength level (1-9), and the
 app starts a timer.
 
-Get your [Pulsetto device](https://pulsetto.myshopify.com/products/meet-pulsetto-v3?sca_ref=6511019.cCZ7LMhOmo).
+Get your [Pulsetto device](https://juraj.bednar.io/pulsetto).
 
 ## Related Projects
 
