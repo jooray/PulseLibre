@@ -50,7 +50,6 @@ const App = () => {
   const [connectedDevice, setConnectedDevice] = useState(null); // Connected device
   const [isRunning, setIsRunning] = useState(false); // Timer running state
   const [remainingTime, setRemainingTime] = useState(0); // Remaining time in seconds
-  const [isPollingEnabled, setIsPollingEnabled] = useState(true); // Status polling enabled
   const [appState, setAppState] = useState(AppState.currentState); // App state for background handling
 
   // Reference for intervals to allow clearing
@@ -74,7 +73,7 @@ const App = () => {
       if (nextAppState === 'background') {
         // Pause polling when app goes to background to save battery
         stopStatusPolling();
-      } else if (nextAppState === 'active' && connectedDevice && isPollingEnabled) {
+      } else if (nextAppState === 'active' && connectedDevice) {
         // Resume polling when returning to foreground
         startStatusPolling();
       }
@@ -228,15 +227,15 @@ const App = () => {
       // Query initial battery and charging status
       await queryDeviceStatus(connected);
 
-      // Start periodic status polling if enabled and app is active
-      if (isPollingEnabled && appState === 'active') {
+      // Start periodic status polling if app is active
+      if (appState === 'active') {
         startStatusPolling();
       }
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message, [{ text: 'OK' }]);
     }
-  }, [isPollingEnabled, appState, queryDeviceStatus, startStatusPolling, subscribeToNotifications]);
+  }, [appState, queryDeviceStatus, startStatusPolling, subscribeToNotifications]);
 
   // Query device status (battery and charging)
   const queryDeviceStatus = useCallback(async device => {
@@ -247,7 +246,7 @@ const App = () => {
 
   // Start periodic status polling
   const startStatusPolling = useCallback(() => {
-    if (pollingRef.current || !connectedDevice || !isPollingEnabled || appState !== 'active') {
+    if (pollingRef.current || !connectedDevice || appState !== 'active') {
       return;
     }
 
@@ -256,7 +255,15 @@ const App = () => {
 
     pollingRef.current = setInterval(async () => {
       try {
+        // Query device status (battery and charging)
         await queryDeviceStatus(connectedDevice);
+
+        // If device is running, also resend the strength command to keep it active
+        if (isRunning) {
+          console.log(`Resending strength command: ${strength}`);
+          await sendCommand(`${strength}\n`);
+        }
+
         retryCountRef.current = 0; // Reset retry count on success
       } catch (error) {
         console.warn('Status polling failed:', error);
@@ -274,7 +281,7 @@ const App = () => {
         }
       }
     }, interval);
-  }, [connectedDevice, isPollingEnabled, appState, isRunning, queryDeviceStatus, stopStatusPolling]);
+  }, [connectedDevice, appState, isRunning, strength, queryDeviceStatus, sendCommand, stopStatusPolling]);
 
   // Stop periodic status polling
   const stopStatusPolling = useCallback(() => {
@@ -455,14 +462,14 @@ const App = () => {
     };
   }, [isRunning, remainingTime, handleStop]);
 
-  // Handle polling interval changes when running state changes
+  // Handle polling interval changes when running state or strength changes
   useEffect(() => {
-    if (connectedDevice && isPollingEnabled && appState === 'active') {
-      // Restart polling with appropriate interval
+    if (connectedDevice && appState === 'active') {
+      // Restart polling with appropriate interval and current strength
       stopStatusPolling();
       startStatusPolling();
     }
-  }, [isRunning, connectedDevice, isPollingEnabled, appState, startStatusPolling, stopStatusPolling]);
+  }, [isRunning, strength, connectedDevice, appState, startStatusPolling, stopStatusPolling]);
 
   // Handle Strength Change
   const handleStrengthChange = async value => {
@@ -551,39 +558,10 @@ const App = () => {
         />
       )}
 
-      {/* Status Polling Toggle */}
-      {connectedDevice && (
-        <View style={styles.pollingContainer}>
-          <Text style={styles.pollingLabel}>Status Polling:</Text>
-          <Button
-            title={isPollingEnabled ? 'ON' : 'OFF'}
-            onPress={() => {
-              setIsPollingEnabled(!isPollingEnabled);
-              if (!isPollingEnabled) {
-                // Enable polling
-                if (appState === 'active') {
-                  startStatusPolling();
-                }
-              } else {
-                // Disable polling
-                stopStatusPolling();
-              }
-            }}
-            color={isPollingEnabled ? (isDarkMode ? '#4CAF50' : '#28a745') : (isDarkMode ? '#FF6B6B' : '#dc3545')}
-          />
-        </View>
-      )}
-
       {/* Battery and Charging Status */}
       <Text style={styles.statusText}>
         Battery: {battery} | Charging: {charging}
       </Text>
-
-      {isPollingEnabled && connectedDevice && (
-        <Text style={styles.pollingInfoText}>
-          Polling every {isRunning ? '30s' : '60s'} {appState !== 'active' ? '(paused in background)' : ''}
-        </Text>
-      )}
     </View>
   );
 };
@@ -630,23 +608,6 @@ const getStyles = isDarkMode =>
       marginTop: 16,
       fontSize: 16,
       color: isDarkMode ? '#CCCCCC' : '#333333',
-    },
-    pollingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 16,
-      marginBottom: 8,
-    },
-    pollingLabel: {
-      fontSize: 16,
-      color: isDarkMode ? '#CCCCCC' : '#333333',
-      marginRight: 8,
-    },
-    pollingInfoText: {
-      marginTop: 8,
-      fontSize: 12,
-      color: isDarkMode ? '#999999' : '#666666',
-      fontStyle: 'italic',
     },
   });
 
