@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,7 @@ import {
   useColorScheme,
   Platform,
   Alert,
-  Linking,
+  AppState,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { BleManager } from 'react-native-ble-plx';
@@ -35,6 +35,11 @@ const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Notify
 const BATTERY_FULL_VOLTAGE = 3.95; // Voltage at 100%
 const BATTERY_EMPTY_VOLTAGE = 2.5; // Voltage at 0%
 
+// Polling Configuration
+const POLLING_INTERVAL_RUNNING = 30000; // 30 seconds when device is running
+const POLLING_INTERVAL_IDLE = 60000; // 60 seconds when device is idle
+const MAX_RETRY_ATTEMPTS = 3; // Maximum retry attempts for failed commands
+
 const App = () => {
   // State Variables
   const [timer, setTimer] = useState(4); // Timer in minutes
@@ -45,17 +50,37 @@ const App = () => {
   const [connectedDevice, setConnectedDevice] = useState(null); // Connected device
   const [isRunning, setIsRunning] = useState(false); // Timer running state
   const [remainingTime, setRemainingTime] = useState(0); // Remaining time in seconds
+  const [appState, setAppState] = useState(AppState.currentState); // App state for background handling
 
-  // Reference for interval to allow clearing
+  // Reference for intervals to allow clearing
   const intervalRef = useRef(null);
+  const pollingRef = useRef(null);
+  const retryCountRef = useRef(0);
 
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
   const styles = getStyles(isDarkMode);
 
-  // Request permissions on mount
+  // Request permissions on mount and handle app state changes
   useEffect(() => {
     requestBluetoothPermissions();
+
+    // Handle app state changes for background/foreground optimization
+    const handleAppStateChange = (nextAppState) => {
+      console.log('App state changed:', nextAppState);
+      setAppState(nextAppState);
+
+      if (nextAppState === 'background') {
+        // Pause polling when app goes to background to save battery
+        stopStatusPolling();
+      } else if (nextAppState === 'active' && connectedDevice) {
+        // Resume polling when returning to foreground
+        startStatusPolling();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       manager.stopDeviceScan();
       if (connectedDevice) {
@@ -64,11 +89,14 @@ const App = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      stopStatusPolling();
+      subscription?.remove();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty - this should only run on mount
 
   // Request Bluetooth and Location permissions
-  const requestBluetoothPermissions = async () => {
+  const requestBluetoothPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
       const permissions = [
         PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
@@ -140,10 +168,10 @@ const App = () => {
         Alert.alert('Permission Error', error.message, [{ text: 'OK' }]);
       }
     }
-  };
+  }, [scanForDevices]);
 
   // Scan for BLE devices
-  const scanForDevices = () => {
+  const scanForDevices = useCallback(() => {
     if (scanning || connectedDevice) {
       console.log('Scan already in progress or device already connected.');
       return;
@@ -178,10 +206,10 @@ const App = () => {
         ]);
       }
     }, 10000); // 10 seconds
-  };
+  }, [scanning, connectedDevice, connectToDevice]);
 
   // Connect to the BLE device
-  const connectToDevice = async device => {
+  const connectToDevice = useCallback(async device => {
     try {
       console.log(`Connecting to device: ${device.name}`);
       const connected = await manager.connectToDevice(device.id, { autoConnect: false });
@@ -198,21 +226,75 @@ const App = () => {
 
       // Query initial battery and charging status
       await queryDeviceStatus(connected);
+
+      // Start periodic status polling if app is active
+      if (appState === 'active') {
+        startStatusPolling();
+      }
     } catch (error) {
       console.error('Connection error:', error);
       Alert.alert('Connection Error', error.message, [{ text: 'OK' }]);
     }
-  };
+  }, [appState, queryDeviceStatus, startStatusPolling, subscribeToNotifications]);
 
   // Query device status (battery and charging)
-  const queryDeviceStatus = async device => {
+  const queryDeviceStatus = useCallback(async device => {
     console.log('Querying device status...');
     await sendCommand('Q\n', device); // Query battery
     await sendCommand('u\n', device); // Query charging status
-  };
+  }, [sendCommand]);
+
+  // Start periodic status polling
+  const startStatusPolling = useCallback(() => {
+    if (pollingRef.current || !connectedDevice || appState !== 'active') {
+      return;
+    }
+
+    console.log('Starting status polling...');
+    const interval = isRunning ? POLLING_INTERVAL_RUNNING : POLLING_INTERVAL_IDLE;
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        // Query device status (battery and charging)
+        await queryDeviceStatus(connectedDevice);
+
+        // If device is running, also resend the strength command to keep it active
+        if (isRunning) {
+          console.log(`Resending strength command: ${strength}`);
+          await sendCommand(`${strength}\n`);
+        }
+
+        retryCountRef.current = 0; // Reset retry count on success
+      } catch (error) {
+        console.warn('Status polling failed:', error);
+        retryCountRef.current += 1;
+
+        if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
+          console.error('Max retry attempts reached, stopping polling');
+          stopStatusPolling();
+          // Optionally show user notification about connection issues
+          Alert.alert(
+            'Connection Issue',
+            'Unable to communicate with device. Please check connection.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    }, interval);
+  }, [connectedDevice, appState, isRunning, strength, queryDeviceStatus, sendCommand, stopStatusPolling]);
+
+  // Stop periodic status polling
+  const stopStatusPolling = useCallback(() => {
+    if (pollingRef.current) {
+      console.log('Stopping status polling...');
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+      retryCountRef.current = 0;
+    }
+  }, []);
 
   // Subscribe to notifications from the device
-  const subscribeToNotifications = device => {
+  const subscribeToNotifications = useCallback(device => {
     console.log('Subscribing to notifications...');
     device.monitorCharacteristicForService(
       UART_SERVICE_UUID,
@@ -232,10 +314,10 @@ const App = () => {
         }
       }
     );
-  };
+  }, [handleNotification]);
 
   // Handle incoming notifications
-  const handleNotification = (decodedData, rawBytes) => {
+  const handleNotification = useCallback((decodedData, rawBytes) => {
     // Debugging: Log both decoded and raw data
     console.log(`Decoded Data: "${decodedData}"`);
     console.log(`Raw Bytes: ${rawBytes.toString('hex')}`);
@@ -274,7 +356,7 @@ const App = () => {
     // Handle other notifications if necessary
     // Example: "mode:D", "BR:145"
     // Currently, these are logged but not processed
-  };
+  }, []);
 
   // Calculate battery percentage based on voltage
   const calculateBatteryPercentage = voltage => {
@@ -290,7 +372,7 @@ const App = () => {
   };
 
   // Send a command to the device
-  const sendCommand = async (command, device = connectedDevice) => {
+  const sendCommand = useCallback(async (command, device = connectedDevice) => {
     if (!device) {
       console.log('Device not connected. Cannot send command.');
       return;
@@ -310,7 +392,28 @@ const App = () => {
       console.error('Failed to send command:', error);
       Alert.alert('Command Error', error.message, [{ text: 'OK' }]);
     }
-  };
+  }, [connectedDevice]);
+
+  // Handle Stop Button Press
+  const handleStop = useCallback(async () => {
+    if (!connectedDevice) {
+      Alert.alert('Error', 'Device not connected.', [{ text: 'OK' }]);
+      return;
+    }
+
+    console.log('Stop button pressed.');
+    setIsRunning(false);
+    setRemainingTime(0); // Reset remaining time
+
+    try {
+      await sendCommand('0\n'); // Deactivate device
+      console.log('Device stopped.');
+      await queryDeviceStatus(connectedDevice); // Update status
+    } catch (error) {
+      console.error('Error during stop:', error);
+      Alert.alert('Stop Error', error.message, [{ text: 'OK' }]);
+    }
+  }, [connectedDevice, sendCommand, queryDeviceStatus]);
 
   // Handle Start Button Press
   const handleStart = async () => {
@@ -333,35 +436,15 @@ const App = () => {
     }
   };
 
-  // Handle Stop Button Press
-  const handleStop = async () => {
-    if (!connectedDevice) {
-      Alert.alert('Error', 'Device not connected.', [{ text: 'OK' }]);
-      return;
-    }
-
-    console.log('Stop button pressed.');
-    setIsRunning(false);
-    setRemainingTime(0); // Reset remaining time
-
-    try {
-      await sendCommand('0\n'); // Deactivate device
-      console.log('Device stopped.');
-      await queryDeviceStatus(connectedDevice); // Update status
-    } catch (error) {
-      console.error('Error during stop:', error);
-      Alert.alert('Stop Error', error.message, [{ text: 'OK' }]);
-    }
-  };
-
   // Implement countdown timer
   useEffect(() => {
+    let timerId = null;
+
     if (isRunning && remainingTime > 0) {
       console.log(`Timer started: ${remainingTime} seconds remaining.`);
-      intervalRef.current = setInterval(() => {
+      timerId = setInterval(() => {
         setRemainingTime(prevTime => {
           if (prevTime <= 1) {
-            clearInterval(intervalRef.current);
             console.log('Timer ended.');
             handleStop(); // Automatically stop when timer reaches zero
             return 0;
@@ -369,14 +452,24 @@ const App = () => {
           return prevTime - 1;
         });
       }, 1000); // Decrement every second
+      intervalRef.current = timerId;
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (timerId) {
+        clearInterval(timerId);
       }
     };
-  }, [isRunning]);
+  }, [isRunning, remainingTime, handleStop]);
+
+  // Handle polling interval changes when running state or strength changes
+  useEffect(() => {
+    if (connectedDevice && appState === 'active') {
+      // Restart polling with appropriate interval and current strength
+      stopStatusPolling();
+      startStatusPolling();
+    }
+  }, [isRunning, strength, connectedDevice, appState, startStatusPolling, stopStatusPolling]);
 
   // Handle Strength Change
   const handleStrengthChange = async value => {
