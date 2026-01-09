@@ -45,7 +45,7 @@ const STATUS_POLL_INTERVAL = 30000; // Poll battery status every 30 seconds
 
 const App = () => {
   // State Variables
-  const [timer, setTimer] = useState(4); // Timer in minutes
+  const [timer, setTimer] = useState(10); // Timer in minutes
   const [strength, setStrength] = useState(5); // Default strength
   const [battery, setBattery] = useState(null); // Battery level
   const [charging, setCharging] = useState(null); // Charging status
