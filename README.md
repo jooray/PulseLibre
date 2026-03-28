@@ -21,6 +21,18 @@ Add [https://github.com/jooray/PulseLibre](https://github.com/jooray/PulseLibre)
 - Compatible with Android and iOS devices.
 - Does not require Internet permission. No tracking. It needs location and bluetooth permission - location is because Bluetooth scanning could reveal your location, so scanning does not work otherwise. But since there is no Internet permission, the app can't do anything with the location anyway.
 
+## Protocol
+
+I reverse engineered the protocol of both Pulsetto Lite and Fit devices. There
+is no difference between the different session types in the wave they produce,
+the only difference is recommended length and the small fact that the Sleep
+program starts with the LED dimmed. There are no session type settings in the
+app precisely for this reason - just set the time and intensity and you are
+good to go.
+
+For those interested, the full protocol documentation is
+[here](https://github.com/jooray/pulse-libre-desktop/blob/main/docs/PULSETTO_PROTOCOL.md).
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) version 18 or higher.

@@ -76,4 +76,5 @@ package-lock.json
 ios/Podfile.lock
 
 CLAUDE.md
+AGENTS.md
 .claude/
