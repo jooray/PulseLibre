@@ -35,13 +35,17 @@ const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Write
 const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Notify
 
-// Battery Voltage Constants
-const BATTERY_FULL_VOLTAGE = 3.95; // Voltage at 100%
-const BATTERY_EMPTY_VOLTAGE = 2.5; // Voltage at 0%
+// Battery Voltage Constants (from official APK: 3.5V=0%, 3.9V=100%)
+const BATTERY_FULL_VOLTAGE = 3.9;
+const BATTERY_EMPTY_VOLTAGE = 3.5;
 
 // Keep-alive constants
 const KEEPALIVE_INTERVAL = 10000; // Send keepalive every 10 seconds
-const STATUS_POLL_INTERVAL = 30000; // Poll battery status every 30 seconds
+const STATUS_POLL_INTERVAL = 30000; // Poll battery status every 30 seconds (idle)
+const SESSION_POLL_INTERVAL = 3000; // Poll battery status every 3 seconds (during session)
+
+// Helper: sleep for ms milliseconds
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const App = () => {
   // State Variables
@@ -172,23 +176,30 @@ const App = () => {
   }, [isRunning, connectedDevice, strength]);
 
   // Poll device status periodically when connected
+  // (interval is managed by startStatusPolling, this just sets up initial polling)
   useEffect(() => {
     if (connectedDevice) {
-      console.log('Starting status polling interval...');
-
-      statusPollRef.current = setInterval(() => {
-        console.log('Polling device status...');
-        queryDeviceStatus(connectedDevice);
-      }, STATUS_POLL_INTERVAL);
-
+      // Initial polling is started in connectToDevice via startStatusPolling
       return () => {
         if (statusPollRef.current) {
           console.log('Clearing status polling interval');
           clearInterval(statusPollRef.current);
+          statusPollRef.current = null;
         }
       };
     }
   }, [connectedDevice]);
+
+  // Start/restart status polling with a given interval
+  const startStatusPolling = (interval) => {
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+    }
+    console.log(`Starting status polling every ${interval / 1000}s...`);
+    statusPollRef.current = setInterval(() => {
+      queryDeviceStatus(connectedDevice);
+    }, interval);
+  };
 
   // Request Bluetooth and Location permissions
   const requestBluetoothPermissions = async () => {
@@ -331,14 +342,32 @@ const App = () => {
       // Subscribe to notifications
       subscribeToNotifications(connected);
 
+      // Query firmware version and device identity
+      await queryDeviceInfo(connected);
+
       // Query initial battery and charging status
       await queryDeviceStatus(connected);
 
-      // If a session was running, resume it
+      // Start idle status polling
+      startStatusPolling(STATUS_POLL_INTERVAL);
+
+      // If a session was running, resume it with full start sequence
       if (isRunning && remainingTime > 0) {
         console.log('Resuming session after reconnection...');
-        await sendCommand('D\n', connected); // Activate device
-        await sendCommand(`${strength}\n`, connected); // Set strength
+        await sendCommand('+\n', connected);
+        await sendCommand('-\n', connected);
+        await sleep(250);
+        await sendCommand('0\n', connected);
+        await sleep(450);
+        await sendCommand('5\n', connected);
+        await sleep(450);
+        await sendCommand('0\n', connected);
+        await sleep(450);
+        await sendCommand(`${strength}\n`, connected);
+        await sleep(250);
+        await sendCommand('D\n', connected);
+        await sendCommand('E\n', connected);
+        startStatusPolling(SESSION_POLL_INTERVAL);
       }
     } catch (error) {
       console.error('Connection error:', error);
@@ -357,8 +386,15 @@ const App = () => {
   // Query device status (battery and charging)
   const queryDeviceStatus = async device => {
     console.log('Querying device status...');
-    await sendCommand('Q\n', device); // Query battery
     await sendCommand('u\n', device); // Query charging status
+    await sendCommand('Q\n', device); // Query battery
+  };
+
+  // Query device info (firmware version and identity, called once on connect)
+  const queryDeviceInfo = async device => {
+    console.log('Querying device info...');
+    await sendCommand('v\n', device); // Firmware version
+    await sendCommand('i\n', device); // Device identity
   };
 
   // Subscribe to notifications from the device
@@ -421,9 +457,16 @@ const App = () => {
       }
     }
 
-    // Handle other notifications if necessary
-    // Example: "mode:D", "BR:145"
-    // Currently, these are logged but not processed
+    // Handle other notifications
+    // Firmware version response
+    if (trimmedData.startsWith('fw:')) {
+      console.log(`Firmware version: ${trimmedData.substring(3)}`);
+    }
+
+    // Device identity response
+    if (trimmedData.startsWith('Pulsetto_') || trimmedData.startsWith('pulsetto_')) {
+      console.log(`Device identity: ${trimmedData}`);
+    }
   };
 
   // Calculate battery percentage based on voltage
@@ -439,7 +482,7 @@ const App = () => {
     }
   };
 
-  // Send a command to the device
+  // Send a command to the device (writeWithResponse — for ramp commands: + and -)
   const sendCommand = async (command, device = connectedDevice) => {
     if (!device) {
       console.log('Device not connected. Cannot send command.');
@@ -447,18 +490,26 @@ const App = () => {
     }
 
     try {
-      console.log(`Sending command: "${command}"`);
       const base64Command = Buffer.from(command).toString('base64');
-      console.log(`Base64 Command: ${base64Command}`);
-      await device.writeCharacteristicWithResponseForService(
-        UART_SERVICE_UUID,
-        UART_RX_CHAR_UUID,
-        base64Command
-      );
-      console.log('Command sent successfully.');
+      // Auto-detect write type: ramp commands (+/-) use writeWithResponse
+      const cmdChar = command.trim();
+      if (cmdChar === '+' || cmdChar === '-') {
+        console.log(`Sending command (withResponse): "${command.trim()}"`);
+        await device.writeCharacteristicWithResponseForService(
+          UART_SERVICE_UUID,
+          UART_RX_CHAR_UUID,
+          base64Command
+        );
+      } else {
+        console.log(`Sending command (withoutResponse): "${command.trim()}"`);
+        await device.writeCharacteristicWithoutResponseForService(
+          UART_SERVICE_UUID,
+          UART_RX_CHAR_UUID,
+          base64Command
+        );
+      }
     } catch (error) {
       console.error('Failed to send command:', error);
-      // Don't show alert - trigger reconnection instead
       // Check if it's a disconnection error
       if (error.message?.includes('not connected') || error.message?.includes('disconnected')) {
         console.log('Device appears disconnected, triggering reconnection...');
@@ -478,9 +529,24 @@ const App = () => {
     setIsRunning(true);
     setRemainingTime(timer * 60); // Set remaining time in seconds
 
-    await sendCommand('D\n'); // Activate device
-    await sendCommand(`${strength}\n`); // Set strength
-    console.log(`Timer started for ${timer} minutes with strength ${strength}.`);
+    // Full startup ramp sequence (from official APK beginSession)
+    await sendCommand('+\n'); // rampUp (writeWithResponse)
+    await sendCommand('-\n'); // rampDown (writeWithResponse)
+    await sleep(250);
+    await sendCommand('0\n'); // level 0
+    await sleep(450);
+    await sendCommand('5\n'); // brief calibration pulse
+    await sleep(450);
+    await sendCommand('0\n'); // back to zero
+    await sleep(450);
+    await sendCommand(`${strength}\n`); // target intensity
+    await sleep(250);
+    await sendCommand('D\n'); // both sides
+    await sendCommand('E\n'); // LED intensity low (least distracting)
+
+    // Switch to fast polling during session
+    startStatusPolling(SESSION_POLL_INTERVAL);
+    console.log(`Session started for ${timer} minutes with strength ${strength}.`);
   };
 
   // Handle Stop Button Press
@@ -490,8 +556,13 @@ const App = () => {
     setRemainingTime(0); // Reset remaining time
 
     if (connectedDevice) {
-      await sendCommand('0\n'); // Deactivate device
+      // Full stop sequence (from official APK endSession)
+      await sendCommand('+\n'); // rampUp (writeWithResponse)
+      await sendCommand('-\n'); // rampDown (writeWithResponse)
+      await sendCommand('-\n'); // endSession (writeWithResponse)
       console.log('Device stopped.');
+      // Switch back to slow polling when idle
+      startStatusPolling(STATUS_POLL_INTERVAL);
       await queryDeviceStatus(connectedDevice); // Update status
     }
   };
