@@ -10,7 +10,15 @@ This mobile app is designed for both Android and iOS platforms and mirrors the f
 
 ## Installation on Android
 
-Add [https://github.com/jooray/PulseLibre](https://github.com/jooray/PulseLibre) to your Obtainium. I don't plan on releasing through Play Store nor F-Droid.
+I don't plan on releasing through Play Store nor F-Droid. You can get PulseLibre through any of the following:
+
+<a href="https://github.com/jooray/PulseLibre"><img src="images/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
+<a href="https://zapstore.dev/apps/com.pulselibre"><img src="images/badge_zapstore.png" alt="Get it on Zapstore" height="80"></a>
+<a href="https://github.com/jooray/PulseLibre/releases/latest"><img src="images/badge_download_apk.png" alt="Download APK" height="80"></a>
+
+- **Obtainium**: add `https://github.com/jooray/PulseLibre` as a source to get automatic updates from GitHub releases.
+- **Zapstore**: install from [zapstore.dev/apps/com.pulselibre](https://zapstore.dev/apps/com.pulselibre).
+- **Direct APK**: grab the latest `app-release.apk` from the [releases page](https://github.com/jooray/PulseLibre/releases/latest).
 
 ## Features
 
