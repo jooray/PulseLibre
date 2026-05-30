@@ -566,7 +566,7 @@ const App = () => {
       try {
         const batteryVoltage = parseFloat(trimmedData.split('Batt:')[1]);
         const batteryPercentage = calculateBatteryPercentage(batteryVoltage);
-        setBattery(`${batteryPercentage}%`);
+        setBattery(batteryPercentage);
         console.log(`Battery Voltage: ${batteryVoltage}V => ${batteryPercentage}%`);
       } catch (error) {
         console.error('Failed to parse battery data:', error);
