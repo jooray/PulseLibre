@@ -58,6 +58,20 @@ const DEFAULT_DAILY_GOAL = 2;
 const MIN_COUNTING_SECONDS = 60;
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
+// Predefined session programs — each just sets a default duration;
+// the device behaves identically regardless of program (see README).
+const PROGRAMS = [
+  { name: 'Stress', minutes: 4 },
+  { name: 'Anxiety', minutes: 6 },
+  { name: 'Sleep', minutes: 10 },
+  { name: 'Burnout', minutes: 6 },
+  { name: 'Pain', minutes: 20 },
+  { name: 'Head Pain', minutes: 6 },
+  { name: 'Inflammation', minutes: 4 },
+  { name: 'Gut Health', minutes: 5 },
+  { name: 'Personal', minutes: 8 },
+];
+
 // Helper: sleep for ms milliseconds
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -109,6 +123,7 @@ const formatDuration = seconds => {
 const App = () => {
   // State Variables
   const [timer, setTimer] = useState(10); // Timer in minutes
+  const [selectedProgram, setSelectedProgram] = useState(null); // Selected program name
   const [strength, setStrength] = useState(5); // Default strength
   const [battery, setBattery] = useState(null); // Battery level
   const [charging, setCharging] = useState(null); // Charging status
@@ -382,10 +397,10 @@ const App = () => {
     } else if (Platform.OS === 'ios') {
       // Handle iOS permissions
       try {
-        const status = await check(PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL);
+        const status = await check(PERMISSIONS.IOS.BLUETOOTH);
 
         if (status !== RESULTS.GRANTED) {
-          const newStatus = await request(PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL);
+          const newStatus = await request(PERMISSIONS.IOS.BLUETOOTH);
           if (newStatus === RESULTS.GRANTED) {
             scanForDevices();
           } else {
@@ -662,6 +677,7 @@ const App = () => {
       time: Date.now(),
       plannedSeconds: timer * 60,
       strength,
+      program: selectedProgram,
     };
     setIsRunning(true);
     setRemainingTime(timer * 60); // Set remaining time in seconds
@@ -691,7 +707,7 @@ const App = () => {
     console.log('Stop button pressed.');
     // Log the session before clearing state
     if (sessionStartRef.current) {
-      const { time: startMs, plannedSeconds, strength: usedStrength } = sessionStartRef.current;
+      const { time: startMs, plannedSeconds, strength: usedStrength, program } = sessionStartRef.current;
       const elapsedMs = Date.now() - startMs;
       const actualSeconds = Math.max(0, Math.min(plannedSeconds, Math.round(elapsedMs / 1000)));
       const completed = actualSeconds >= plannedSeconds - 1;
@@ -700,6 +716,7 @@ const App = () => {
         plannedSeconds,
         actualSeconds,
         strength: usedStrength,
+        program: program || null,
         completed,
       };
       console.log('Logging session:', newSession);
@@ -768,13 +785,20 @@ const App = () => {
 
   // Timer Handlers should be defined before the return statement
   const increaseTimer = () => {
+    setSelectedProgram(null);
     setTimer(prev => prev + 1);
     console.log(`Timer increased to ${timer + 1} minutes.`);
   };
 
   const decreaseTimer = () => {
+    setSelectedProgram(null);
     setTimer(prev => Math.max(1, prev - 1));
     console.log(`Timer decreased to ${Math.max(1, timer - 1)} minutes.`);
+  };
+
+  const selectProgram = program => {
+    setSelectedProgram(program.name);
+    setTimer(program.minutes);
   };
 
   // Build week view data (Mon..Sun) — derived from sessions/dailyGoal
@@ -892,6 +916,43 @@ const App = () => {
           <Text style={styles.weekHint}>
             Use Pulsetto {dailyGoal} {dailyGoal === 1 ? 'time' : 'times'} to mark your day as complete.
           </Text>
+        </View>
+
+        {/* Program Picker */}
+        <View style={styles.weekCard}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.programRow}
+          >
+            {PROGRAMS.map(program => {
+              const isActive = selectedProgram === program.name;
+              return (
+                <TouchableOpacity
+                  key={program.name}
+                  style={styles.programItem}
+                  onPress={() => selectProgram(program)}
+                  disabled={isRunning}
+                >
+                  <Text
+                    style={[styles.weekDayLabel, isActive && styles.weekDayLabelToday]}
+                    numberOfLines={1}
+                  >
+                    {program.name.toUpperCase()}
+                  </Text>
+                  <View
+                    style={[
+                      styles.weekDayCircle,
+                      isActive && styles.weekDayCircleComplete,
+                    ]}
+                  >
+                    {isActive && <Text style={styles.weekDayCheck}>✓</Text>}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text style={styles.weekHint}>Tap a program to set the session duration.</Text>
         </View>
 
         {/* Timer Display */}
@@ -1082,6 +1143,7 @@ const App = () => {
                   <View style={styles.logRowLeft}>
                     <Text style={styles.logRowDate}>
                       {formatSessionDate(item.startTime)}
+                      {item.program ? ` · ${item.program}` : ''}
                     </Text>
                     <Text style={styles.logRowDetail}>
                       {formatDuration(item.actualSeconds)}
@@ -1256,6 +1318,13 @@ const getStyles = isDarkMode =>
       color: isDarkMode ? '#9CA3AF' : '#6B7280',
       textAlign: 'center',
       marginTop: 12,
+    },
+    programRow: {
+      flexDirection: 'row',
+    },
+    programItem: {
+      alignItems: 'center',
+      width: 72,
     },
     logsButton: {
       marginTop: 16,
@@ -1444,7 +1513,7 @@ const getStyles = isDarkMode =>
     timerCard: {
       backgroundColor: isDarkMode ? '#1A1F2E' : '#FFFFFF',
       borderRadius: 16,
-      padding: 24,
+      padding: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
@@ -1452,10 +1521,10 @@ const getStyles = isDarkMode =>
       elevation: 4,
     },
     timerLabel: {
-      fontSize: 16,
+      fontSize: 12,
       fontWeight: '600',
       color: isDarkMode ? '#9CA3AF' : '#6B7280',
-      marginBottom: 16,
+      marginBottom: 6,
       textAlign: 'center',
     },
     timerDisplay: {
@@ -1464,15 +1533,15 @@ const getStyles = isDarkMode =>
       justifyContent: 'center',
     },
     timerButton: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
       justifyContent: 'center',
       alignItems: 'center',
     },
     timerButtonText: {
-      fontSize: 32,
+      fontSize: 22,
       fontWeight: '300',
       color: isDarkMode ? '#E5E7EB' : '#1F2937',
     },
@@ -1480,21 +1549,21 @@ const getStyles = isDarkMode =>
       opacity: 0.3,
     },
     timerTextContainer: {
-      marginHorizontal: 32,
+      marginHorizontal: 20,
       alignItems: 'center',
     },
     timerText: {
-      fontSize: 56,
+      fontSize: 30,
       fontWeight: '700',
       color: isDarkMode ? '#FFFFFF' : '#1F2937',
       fontVariant: ['tabular-nums'],
     },
     progressBar: {
-      width: 200,
-      height: 4,
+      width: 140,
+      height: 3,
       backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
       borderRadius: 2,
-      marginTop: 12,
+      marginTop: 6,
       overflow: 'hidden',
     },
     progressFill: {
