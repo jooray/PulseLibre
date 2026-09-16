@@ -42,5 +42,70 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "@react-native-async-storage/async-storage": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-clean": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-config": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-config-android": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-config-apple": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-doctor": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-platform-android": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-platform-apple": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-platform-ios": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-server-api": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/cli-tools": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native-community/geolocation": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native/community-cli-plugin": {
+      "shell-quote": "1.9.0"
+    },
+    "@react-native/virtualized-lists": {
+      "shell-quote": "1.9.0"
+    },
+    "launch-editor": {
+      "shell-quote": "1.9.0"
+    },
+    "react-devtools-core": {
+      "shell-quote": "1.9.0"
+    },
+    "react-native": {
+      "shell-quote": "1.9.0"
+    },
+    "react-native-ble-plx": {
+      "shell-quote": "1.9.0"
+    },
+    "react-native-permissions": {
+      "shell-quote": "1.9.0"
+    },
+    "shell-quote": {
+      "shell-quote": "1.9.0"
+    }
   }
 }
