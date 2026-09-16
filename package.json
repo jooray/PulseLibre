@@ -2,6 +2,7 @@
   "name": "PulseLibre",
   "version": "2.2.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
