@@ -106,6 +106,16 @@ const formatDuration = seconds => {
   return `${m}m ${s}s`;
 };
 
+// Defined at module scope so FlatList does not see a new component type each render.
+// The separator is a plain spacer, so it needs nothing from the themed styles.
+const staticStyles = StyleSheet.create({
+  logSeparator: {
+    height: 8,
+  },
+});
+
+const LogSeparator = () => <View style={staticStyles.logSeparator} />;
+
 const App = () => {
   // State Variables
   const [timer, setTimer] = useState(10); // Timer in minutes
@@ -116,7 +126,8 @@ const App = () => {
   const [connectedDevice, setConnectedDevice] = useState(null); // Connected device
   const [isRunning, setIsRunning] = useState(false); // Timer running state
   const [remainingTime, setRemainingTime] = useState(0); // Remaining time in seconds
-  const [appState, setAppState] = useState(AppState.currentState);
+  // Value is unused (appStateRef holds the live value); the setter still drives re-renders.
+  const [, setAppState] = useState(AppState.currentState);
 
   // Session log + daily goal
   const [sessions, setSessions] = useState([]);
@@ -230,6 +241,9 @@ const App = () => {
         disconnectSubscriptionRef.current.remove();
       }
     };
+    // Mount/unmount only: re-running this would re-request permissions and
+    // re-register the AppState listener on every reconnect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle app state changes
@@ -305,6 +319,9 @@ const App = () => {
         }
       };
     }
+    // sendCommand is redefined every render; depending on it would tear down
+    // and rebuild the keepalive interval continuously.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, connectedDevice, strength]);
 
   // Poll device status periodically when connected
@@ -744,6 +761,10 @@ const App = () => {
         clearInterval(intervalRef.current);
       }
     };
+    // remainingTime is read only as an initial guard and is decremented via the
+    // functional updater; depending on it would recreate the interval every second.
+    // handleStop is redefined every render for the same reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
   // Handle Strength Change
@@ -1105,7 +1126,7 @@ const App = () => {
                   </View>
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={styles.logSeparator} />}
+              ItemSeparatorComponent={LogSeparator}
             />
           )}
           {sessions.length > 0 && (
@@ -1431,9 +1452,6 @@ const getStyles = isDarkMode =>
       color: '#FFFFFF',
       fontSize: 14,
       fontWeight: '700',
-    },
-    logSeparator: {
-      height: 8,
     },
     logsFooterHint: {
       fontSize: 12,

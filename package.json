@@ -28,7 +28,7 @@
     "@react-native-community/cli-platform-android": "^20.1.0",
     "@react-native-community/cli-platform-ios": "^20.1.0",
     "@react-native/babel-preset": "^0.76.5",
-    "@react-native/eslint-config": "^0.76.5",
+    "@react-native/eslint-config": "^0.87.1",
     "@react-native/metro-config": "^0.76.5",
     "@react-native/typescript-config": "^0.76.5",
     "@types/react": "^18.3.27",
@@ -42,5 +42,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "eslint-plugin-ft-flow": "^3.0.11"
   }
 }
