@@ -44,6 +44,9 @@
     "node": ">=18"
   },
   "overrides": {
-    "eslint-plugin-ft-flow": "^3.0.11"
+    "eslint-plugin-ft-flow": "^3.0.11",
+    "metro": {
+      "image-size": "2.0.3"
+    }
   }
 }
