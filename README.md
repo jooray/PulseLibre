@@ -2,6 +2,19 @@
 
 A React Native application to control the [Pulsetto device](https://juraj.bednar.io/pulsetto) via Bluetooth Low Energy (BLE). The app allows you to set the strength of the device, start a timer, and monitor battery and charging status.
 
+<!-- jooray-links:start -->
+### More from me
+
+**Related projects**
+
+- [pulse-libre-desktop](https://github.com/jooray/pulse-libre-desktop): desktop app for controlling a Pulsetto vagus nerve stimulator
+- [roadstr](https://github.com/jooray/roadstr): road-event reporting over Nostr and MeshCore
+
+**Full project showcase:** [PulseLibre in my project showcase](https://juraj.bednar.io/showcase/#RF-02), or [all my projects](https://juraj.bednar.io/showcase/).
+
+I write about building things on [my blog](https://juraj.bednar.io/en/blog-en/). I also wrote a cypherpunk novel, [Tamers of Entropy](https://tamersofentropy.net/), and there is a [trailer](https://tamersofentropy.net/#trailer).
+<!-- jooray-links:end -->
+
 This mobile app is designed for both Android and iOS platforms and mirrors the functionality of the desktop app available [here](https://github.com/jooray/pulse-libre-desktop).
 
 ## Screenshot
