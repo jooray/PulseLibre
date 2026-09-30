@@ -46,7 +46,7 @@
   "overrides": {
     "eslint-plugin-ft-flow": "^3.0.11",
     "metro": {
-      "image-size": "2.0.3"
+      "image-size": "2.0.4"
     }
   }
 }
